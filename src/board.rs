@@ -18,13 +18,15 @@ pub struct MiniBoard {
 
 impl MiniBoard {
     pub fn new() -> MiniBoard {
-        MiniBoard {
+        let mut ans = MiniBoard {
             cells: [Player::Free; 9],
             winner: None,
             childs: [0; 27],
             _hash: 0,
             _actions: Vec::new(),
-        }
+        };
+        ans.set_possible_actions();
+        ans
     }
 
     pub fn play(&mut self, player: Player, pos: usize) -> Option<MiniBoard> {
@@ -155,7 +157,7 @@ impl Clone for MiniBoard {
         MiniBoard {
             cells: self.cells,
             winner: self.winner,
-            childs: self.childs,
+            childs: [0; 27],
             _hash: self._hash,
             _actions: Vec::new(), // actions are not copied to avoid errors. This is computed on the fly
         }
@@ -220,17 +222,27 @@ impl Board {
         self.previous_position = position;
     }
 
-    pub fn get_possible_actions(&self, g: &HashMap<usize, MiniBoard>) -> Vec<usize> {
-        let played_board = g.get(&self.previous_position).unwrap();
+    pub fn get_possible_actions(&self, g: &HashMap<usize, MiniBoard>) -> Vec<(usize, usize)> {
+        let sub_board_index = self.sub_boards[self.previous_position];
+        let played_board = g.get(&sub_board_index).unwrap();
         if !played_board.is_over() {
-            return played_board.get_possible_actions();
+            return played_board
+                .get_possible_actions()
+                .iter()
+                .map(|x| (self.previous_position, *x))
+                .collect();
         }
 
-        let mut ans: Vec<usize> = Vec::new();
-        for sub_board_idx in self.sub_boards.iter() {
+        let mut ans: Vec<(usize, usize)> = Vec::new();
+        for (k, sub_board_idx) in self.sub_boards.iter().enumerate() {
             let sub_board = g.get(sub_board_idx).unwrap();
             if !sub_board.is_over() {
-                ans.extend(sub_board.get_possible_actions());
+                let actions: Vec<(usize, usize)> = sub_board
+                    .get_possible_actions()
+                    .iter()
+                    .map(|x| (k, *x))
+                    .collect();
+                ans.extend(actions);
             }
         }
         ans
@@ -239,8 +251,9 @@ impl Board {
 
 impl Debug for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Sub_boards: {:?}", self.sub_boards)?;
-        writeln!(f, "Main_board: {}", self.main_board)?;
+        writeln!(f, "Board:")?;
+        writeln!(f, "  Sub_boards: {:?}", self.sub_boards)?;
+        writeln!(f, "  Main_board: {}", self.main_board)?;
         Ok(())
     }
 }

@@ -37,20 +37,27 @@ fn main() {
     let timer = std::time::Instant::now();
 
     let g = build_graph();
-    eprintln!("Graph: {:?}", g.len());
+    eprintln!("Graph: {:?} states", g.len());
 
     let mut board = Board::new();
 
-    board.play(Player::X, 0, 0, &g);
+    board.play(Player::X, 0, 8, &g);
+    board.play(Player::O, 0, 1, &g);
+    board.play(Player::X, 0, 2, &g);
+    board.play(Player::O, 0, 3, &g);
+    board.play(Player::X, 0, 4, &g);
+    board.play(Player::O, 0, 5, &g);
+    board.play(Player::O, 0, 6, &g);
+    board.play(Player::X, 0, 7, &g);
+    board.play(Player::O, 0, 0, &g);
 
-    eprintln!("Board: \n{:?}", board);
+    eprintln!("{:?}", board);
 
     let actions = board.get_possible_actions(&g);
     eprintln!("Actions: {:?}", actions);
-    // TODO: Fix the list that is empty
 
-    let root = g.get(&6561).unwrap();
-    eprintln!("Child: \n{:?}", root);
+    let root = g.get(&18868).unwrap();
+    eprintln!("{:?}", root);
 
     // let root = g.get(&0).unwrap();
     // eprintln!("Root: \n{:?}", root);
