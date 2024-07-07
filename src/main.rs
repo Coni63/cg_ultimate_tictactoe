@@ -2,22 +2,20 @@ mod board;
 
 use std::collections::{HashMap, VecDeque};
 
-use board::{MiniBoard, Player};
+use board::{Board, MiniBoard, Player};
 
 fn build_graph() -> HashMap<usize, MiniBoard> {
     let mut childs: HashMap<usize, MiniBoard> = HashMap::new();
-    let mut visited: [bool; 19683] = [false; 19683];
-    let players = [Player::X, Player::O];
+    let players = [Player::X, Player::O, Player::Draw];
 
     let root = MiniBoard::new();
     let mut q: VecDeque<MiniBoard> = VecDeque::new();
     q.push_back(root);
     while let Some(mut node) = q.pop_front() {
         let h = node.get_hash();
-        if visited[h] {
+        if childs.contains_key(&h) {
             continue;
         }
-        visited[h] = true;
 
         if !node.is_over() {
             for i in 0..9 {
@@ -41,11 +39,24 @@ fn main() {
     let g = build_graph();
     eprintln!("Graph: {:?}", g.len());
 
-    let root = g.get(&0).unwrap();
-    eprintln!("Root: \n{:?}", root);
+    let mut board = Board::new();
 
-    let root = g.get(&13122).unwrap();
+    board.play(Player::X, 0, 0, &g);
+
+    eprintln!("Board: \n{:?}", board);
+
+    let actions = board.get_possible_actions(&g);
+    eprintln!("Actions: {:?}", actions);
+    // TODO: Fix the list that is empty
+
+    let root = g.get(&6561).unwrap();
     eprintln!("Child: \n{:?}", root);
+
+    // let root = g.get(&0).unwrap();
+    // eprintln!("Root: \n{:?}", root);
+
+    // let root = g.get(&13122).unwrap();
+    // eprintln!("Child: \n{:?}", root);
 
     eprintln!("Time: {:?}", timer.elapsed());
 }

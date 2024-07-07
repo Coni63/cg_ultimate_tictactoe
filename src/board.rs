@@ -1,48 +1,19 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Player {
     X,
     O,
     Free,
+    Draw,
 }
 
 pub struct MiniBoard {
     cells: [Player; 9],
     winner: Option<Player>,
-    childs: [usize; 18],
+    childs: [usize; 27],
     _hash: usize,
-}
-
-impl Clone for MiniBoard {
-    fn clone(&self) -> MiniBoard {
-        MiniBoard {
-            cells: self.cells,
-            winner: self.winner,
-            childs: self.childs,
-            _hash: self._hash,
-        }
-    }
-}
-
-impl Debug for MiniBoard {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for i in 0..3 {
-            for j in 0..3 {
-                let c = match self.cells[i * 3 + j] {
-                    Player::X => 'X',
-                    Player::O => 'O',
-                    Player::Free => '-',
-                };
-                write!(f, "{} ", c)?;
-            }
-            writeln!(f)?;
-        }
-        writeln!(f, "Winner: {:?}", self.winner)?;
-        writeln!(f, "Hash: {}", self._hash)?;
-        writeln!(f, "Childs: {:?}", self.childs)?;
-        Ok(())
-    }
+    _actions: Vec<usize>,
 }
 
 impl MiniBoard {
@@ -50,8 +21,9 @@ impl MiniBoard {
         MiniBoard {
             cells: [Player::Free; 9],
             winner: None,
-            childs: [0; 18],
+            childs: [0; 27],
             _hash: 0,
+            _actions: Vec::new(),
         }
     }
 
@@ -61,6 +33,7 @@ impl MiniBoard {
             ans.cells[pos] = player;
             ans.set_winner();
             ans.set_hash();
+            ans.set_possible_actions();
             self.set_child(player, pos, ans.get_hash());
             return Some(ans);
         }
@@ -71,9 +44,9 @@ impl MiniBoard {
         let offset = match player {
             Player::X => 0,
             Player::O => 9,
-            Player::Free => 0,
+            Player::Draw => 18,
+            _ => 0,
         };
-        self.set_hash();
         self.childs[offset + pos] = child;
     }
 
@@ -89,9 +62,24 @@ impl MiniBoard {
         let offset = match player {
             Player::X => 0,
             Player::O => 9,
-            Player::Free => 0,
+            Player::Draw => 18,
+            _ => 0,
         };
         self.childs[offset + pos]
+    }
+
+    pub fn set_possible_actions(&mut self) {
+        if !self.is_over() && self._actions.is_empty() {
+            for i in 0..9 {
+                if self.cells[i] == Player::Free {
+                    self._actions.push(i);
+                }
+            }
+        }
+    }
+
+    pub fn get_possible_actions(&self) -> Vec<usize> {
+        self._actions.clone()
     }
 
     pub fn hash(&self) -> u64 {
@@ -100,7 +88,8 @@ impl MiniBoard {
             let val = match self.cells[i] {
                 Player::X => 1,
                 Player::O => 2,
-                Player::Free => 0,
+                Player::Draw => 3,
+                _ => 0,
             };
             ans = ans * 3 + val;
         }
@@ -108,7 +97,7 @@ impl MiniBoard {
     }
 
     pub fn is_over(&self) -> bool {
-        self.winner.is_some() || self.cells.iter().all(|&x| x != Player::Free)
+        self.winner.is_some()
     }
 
     fn set_winner(&mut self) {
@@ -149,7 +138,109 @@ impl MiniBoard {
         {
             self.winner = Some(self.cells[4]);
         }
+
+        // check draw
+        if self.cells.iter().all(|&x| x != Player::Free) {
+            self.winner = Some(Player::Draw);
+        }
+    }
+
+    pub fn get_winner(&self) -> Option<Player> {
+        self.winner
     }
 }
 
-pub struct Board {}
+impl Clone for MiniBoard {
+    fn clone(&self) -> MiniBoard {
+        MiniBoard {
+            cells: self.cells,
+            winner: self.winner,
+            childs: self.childs,
+            _hash: self._hash,
+            _actions: Vec::new(), // actions are not copied to avoid errors. This is computed on the fly
+        }
+    }
+}
+
+impl Debug for MiniBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in 0..3 {
+            for j in 0..3 {
+                let c = match self.cells[i * 3 + j] {
+                    Player::X => 'X',
+                    Player::O => 'O',
+                    Player::Free => '-',
+                    Player::Draw => 'D',
+                };
+                write!(f, "{} ", c)?;
+            }
+            writeln!(f)?;
+        }
+        writeln!(f, "Winner: {:?}", self.winner)?;
+        writeln!(f, "Hash: {}", self._hash)?;
+        writeln!(f, "Childs: {:?}", self.childs)?;
+        Ok(())
+    }
+}
+
+pub struct Board {
+    sub_boards: [usize; 9],
+    main_board: usize,
+    previous_grid: usize,
+    previous_position: usize,
+}
+
+impl Board {
+    pub fn new() -> Board {
+        Board {
+            sub_boards: [0; 9],
+            main_board: 0,
+            previous_grid: 0,
+            previous_position: 0,
+        }
+    }
+
+    pub fn play(
+        &mut self,
+        player: Player,
+        grid: usize,
+        position: usize,
+        g: &HashMap<usize, MiniBoard>,
+    ) {
+        let sub_board_id = self.sub_boards[grid];
+        let sub_board = g.get(&sub_board_id).unwrap();
+        let new_sub_board = sub_board.get_child(player, position);
+        self.sub_boards[grid] = new_sub_board;
+        if let Some(player) = sub_board.get_winner() {
+            let main_board = g.get(&sub_board_id).unwrap();
+            let new_main_board = main_board.get_child(player, position);
+            self.main_board = new_main_board;
+        }
+        self.previous_grid = grid;
+        self.previous_position = position;
+    }
+
+    pub fn get_possible_actions(&self, g: &HashMap<usize, MiniBoard>) -> Vec<usize> {
+        let played_board = g.get(&self.previous_position).unwrap();
+        if !played_board.is_over() {
+            return played_board.get_possible_actions();
+        }
+
+        let mut ans: Vec<usize> = Vec::new();
+        for sub_board_idx in self.sub_boards.iter() {
+            let sub_board = g.get(sub_board_idx).unwrap();
+            if !sub_board.is_over() {
+                ans.extend(sub_board.get_possible_actions());
+            }
+        }
+        ans
+    }
+}
+
+impl Debug for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Sub_boards: {:?}", self.sub_boards)?;
+        writeln!(f, "Main_board: {}", self.main_board)?;
+        Ok(())
+    }
+}
