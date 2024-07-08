@@ -1,8 +1,11 @@
 mod board;
+mod mcts;
+mod miniboard;
 
 use std::collections::{HashMap, VecDeque};
 
-use board::{Board, MiniBoard, Player};
+use board::Board;
+use miniboard::{MiniBoard, Player};
 
 fn build_graph() -> HashMap<usize, MiniBoard> {
     let mut childs: HashMap<usize, MiniBoard> = HashMap::new();
